@@ -2,10 +2,12 @@
 #include <cmath>
 #include "../include/evolution.hpp"
 #include "../include/neural.hpp"
+#include "../include/reader.hpp"
 
 using namespace std;
 using EVOLUTION::Environment;
 using NEURAL::Network;
+using READER::read_from_file;
 
 void printVector(vector<float> v)
 {
@@ -31,40 +33,65 @@ int main(int argc, char **args)
 {
     srand(time(0));
 
+    auto train = read_from_file("src/train.data");
+    auto test = read_from_file("src/test.data");
+
+    auto train_inps = train->at(0);
+    auto train_outs = train->at(1);
+    
+    auto test_inps = test->at(0);
+    auto test_outs = test->at(1);
+
     Environment env = Environment(
-        500,
+        5000,
         .5,
         .25,
         2,
         1,
-        new vector<int>({1}),
+        new vector<int>({3, 3, 3}),
         &fitness_function);
 
-    vector<float> *inp_1 = new vector<float>({1, 1});
-    vector<float> *out_1 = new vector<float>({2});
-    vector<float> *inp_2 = new vector<float>({5, 9});
-    vector<float> *out_2 = new vector<float>({14});
-    vector<float> *inp_3 = new vector<float>({-9, 3});
-    vector<float> *out_3 = new vector<float>({-6});
 
-    vector<vector<float> *> *inps = new vector<vector<float> *>({inp_1, inp_2, inp_3});
-    vector<vector<float> *> *outs = new vector<vector<float> *>({out_1, out_2, out_3});
+    auto res = env.evolve_n_generations(500, train_inps, train_outs);
 
-    auto res = env.evolve_n_generations(10000, inps, outs);
+    float max_msf = 0;
+    Network *best_network;
+    for (auto network : *res)
+    {
+        float msf = 0;
+        for (int i = 0; i < test_inps->size(); i++)
+            msf += pow(fitness_function(*network << *test_inps->at(i), test_outs->at(i)), 2);
+        msf = sqrt(msf);
 
-    // for (int i = 0; i < res->size(); i++) {
-    //     cout << "MODEL " << i << " (" << *(res->at(i)) << ") LAYER COUNT " << res->at(i)->layer_count() << endl;
-    //     for (int j = 0; j < inps->size(); j++) {
-    //         vector<float>* network_out = *(res->at(i)) << *(inps->at(j));
+        if (msf > max_msf)
+        {
+            max_msf = msf;
+            best_network = network;
+        }
+    }
 
-    //         cout << "\tINPUT " << j << " ";
-    //         printVector(*(inps->at(j)));
-    //         cout << " ";
-    //         printVector(*network_out);
-    //         cout << " " << fitness_function(network_out, outs->at(j));
-    //         cout << endl;
-    //     }
-    // }
+    cout << "Maximum Mean Squared Fitness: " << max_msf << endl;
+    cout << "Outputs of best network" << endl;
+    for (int i = 0; i < test_inps->size(); i++)
+    {
+        cout << "\t";
+        printVector(*test_inps->at(i));
+        cout << " => ";
+        printVector(*(*best_network << *test_inps->at(i)));
+        cout << endl;
+    }
+
+    while (true) {
+        float a, b;
+
+        cout << "Enter a: ";
+        cin >> a;
+        cout << "Enter b: ";
+        cin >> b;
+
+        float output = (*best_network << vector<float>({a, b}))->at(0);
+        cout << ">> " << output << endl;
+    }
 
     return 0;
 }

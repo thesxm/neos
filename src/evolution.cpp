@@ -14,6 +14,7 @@ using std::find;
 using std::priority_queue;
 using std::unordered_map;
 using std::unordered_set;
+using std::cout;
 
 using NEURAL::Layer;
 using NEURAL::Network;
@@ -109,14 +110,12 @@ namespace EVOLUTION
             {
                 vector<float> *inp = inps->at(i);
                 vector<float> *network_output = *n << *inp;
-                float t = this->fitness_function(network_output, inp);
+                float t = this->fitness_function(network_output, outs->at(i));
 
                 fitness_score += pow(t, 2);
             }
 
             fitness_score = sqrt(fitness_score);
-
-            std::cout << fitness_score << std::endl;
 
             pq_max.push(new PQUEUE_NODE(
                 n,
@@ -194,10 +193,15 @@ namespace EVOLUTION
     {
         for (int i = 0; i < n; i++)
         {
+            std::cout << i << "/" << n << "\r";
+            cout.flush();
+
             this->population = this->evolve_one_generation(
                 inps,
                 outs);
         }
+        std::cout << n << "/" << n << std::endl;
+        cout.flush();
 
         return this->population;
     }
