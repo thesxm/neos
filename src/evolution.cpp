@@ -61,7 +61,7 @@ namespace EVOLUTION
                 for (int k = 0; k < j; k++)
                 {
                     vector<float> *w = generate_random_weights(inputs_per_neuron);
-                    NEURON_ACTIVATION_FUNCTION_T fn = NEURON_ACTIVATION_FUNCTION_T::RELU;
+                    NEURON_ACTIVATION_FUNCTION_T fn = NEURON_ACTIVATION_FUNCTION_T::SIGMOID;
                     neurons.push_back(new Neuron(*w, fn));
                 }
 
@@ -193,12 +193,12 @@ namespace EVOLUTION
     {
         for (int i = 0; i < n; i++)
         {
-            std::cout << i << "/" << n << "\r";
+            cout << i << "/" << n << "\r";
             cout.flush();
 
             this->population = this->evolve_one_generation(
                 inps,
-                outs);
+                outs); 
         }
         std::cout << n << "/" << n << std::endl;
         cout.flush();
