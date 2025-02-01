@@ -66,7 +66,7 @@ namespace READER
             }
 
             inps->push_back(inp);
-            outs->push_back(inp);
+            outs->push_back(out);
         }
 
         return new vector<vector<vector<float> *> *>({inps, outs});
