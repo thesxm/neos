@@ -2,11 +2,14 @@
 #include <cmath>
 #include <stdexcept>
 #include <ctime>
+#include <iostream>
 #include "../include/neural.hpp"
 
 using std::vector;
 using std::max;
+using std::min;
 using std::exp;
+using std::ostream;
 using std::runtime_error;
 
 namespace NEURAL {
@@ -15,6 +18,7 @@ namespace NEURAL {
             case NEURON_ACTIVATION_FUNCTION_T::RELU: return x >= 0 ? x : 0;
             case NEURON_ACTIVATION_FUNCTION_T::SIGMOID: return 1.0 / (1.0 + exp(-x));
             case NEURON_ACTIVATION_FUNCTION_T::TANH: return tanh(x);
+            case NEURON_ACTIVATION_FUNCTION_T::NO_ACTIVATION: return x;
             default: throw runtime_error("Unknown activation function received."); exit(1);
         }
     }
@@ -35,7 +39,15 @@ namespace NEURAL {
         return this->_w.size();
     }
 
-    float Neuron::operator<<(vector<float> &inp) {
+    void Neuron::mutate() {
+        int n = this->weight_count();
+        for (int i = 0; i < n / 2; i++) {
+            // this->_w[i] = this->_w[i] * (-3 + 6.0 * rand() / RAND_MAX);
+            std::swap(this->_w[i], this->_w[n - i - 1]);
+        }
+    }
+
+    float Neuron::operator<<(const vector<float> &inp) {
         int n = this->weight_count();
         float res = 0;
 
@@ -44,89 +56,145 @@ namespace NEURAL {
         return apply_activation_function(res, this->_fn);
     }
 
-    Neuron operator*(Neuron &a, Neuron &b) {
+    Neuron* operator*(Neuron &a, Neuron &b) {
         int n = a.weight_count();
         vector<float> w;
 
-        float t = 1.0 * rand() / RAND_MAX;
-        if (t <= 0.33) for (int i = 0; i < n; i++) w.push_back(2 * a._w[i] - (a._w[i] + b._w[i]) / 2);
-        else if (t <= 0.66) for (int i = 0; i < n; i++) w.push_back((a._w[i] + b._w[i]) / 2);
-        else for (int i = 0; i < n; i++) w.push_back(2 * b._w[i] - (a._w[i] + b._w[i]) / 2);
+        // for (int i = 0; i < n; i++) {
+        //     float gap = abs(a._w[i] - b._w[i]);
+        //     float low = min(a._w[i], b._w[i]) - gap;
+        //     float high = max(a._w[i], b._w[i]) + gap;
 
-        return Neuron(w, a._fn);
+        //     w.push_back(
+        //         low + 3 * gap * rand() / RAND_MAX
+        //     );
+        // }
+
+        for (int i = 0; i < n; i++) {
+            w.push_back(
+                (1.0 * rand() / RAND_MAX) <= .5 ? a._w[i] : b._w[i]
+            );
+        }
+
+        return new Neuron(w, a._fn);
+    }
+
+    ostream& operator<<(ostream& o, Neuron& n) {
+        o << "[";
+        for (auto i: n._w)
+            o << " " << i;
+        o << " ]";
+
+        return o;
     }
 
     Layer::Layer(vector<vector<float>> &w, vector<NEURON_ACTIVATION_FUNCTION_T> &fn): Base(NEURAL_T::LAYER_T) {
-        this->_n = vector<Neuron>();
+        this->_n = vector<Neuron*>();
 
         int n = w.size();
         for (int i = 0; i < n; i++) {
             this->_n.push_back(
-                Neuron(w[i], fn[i])
+                new Neuron(w[i], fn[i])
             );
         }
     };
 
-    Layer::Layer(vector<Neuron> &w): Base(NEURAL_T::LAYER_T) {
-        this->_n = vector<Neuron>(w.begin(), w.end());
+    Layer::Layer(vector<Neuron*> &w): Base(NEURAL_T::LAYER_T) {
+        this->_n = vector<Neuron*>(w.begin(), w.end());
+    }
+
+    Layer::~Layer() {
+        for (auto n: this->_n)
+            delete n;
     }
 
     int Layer::neuron_count() {
         return this->_n.size();
     }
 
-    vector<float> Layer::operator<<(vector<float> &inp) {
-        int n = this->neuron_count();
-        vector<float> res = vector<float>();
+    void Layer::mutate() {
+        for (auto n: this->_n) n->mutate();
+    }
 
-        for (int i = 0; i < n; i++) res.push_back(this->_n[i] << inp);
+    vector<float>* Layer::operator<<(const vector<float> &inp) {
+        int n = this->neuron_count();
+        vector<float>* res = new vector<float>;
+
+        for (int i = 0; i < n; i++) res->push_back(*this->_n[i] << inp);
 
         return res;
     }
 
-    Layer operator*(Layer &a, Layer &b) {
+    Layer* operator*(Layer &a, Layer &b) {
         int n = a.neuron_count();
-        vector<Neuron> w;
+        vector<Neuron*> w;
 
-        for (int i = 0; i < n; i++) w.push_back(a._n[i] * b._n[i]);
+        for (int i = 0; i < n; i++) w.push_back(*a._n[i] * *b._n[i]);
 
-        return Layer(w);
+        return new Layer(w);
+    }
+
+    ostream& operator<<(ostream& o, Layer& l) {
+        o << "[";
+        for (auto _: l._n)
+            o << *_;
+        o << "]";
+
+        return o;
     }
 
     Network::Network(vector<vector<vector<float>>> &w, vector<vector<NEURON_ACTIVATION_FUNCTION_T>> &fn): Base(NEURAL_T::NETWORK_T) {
-        this->_l = vector<Layer>();
+        this->_l = vector<Layer*>();
 
         int n = w.size();
         for (int i = 0; i < n; i++) {
             this->_l.push_back(
-                Layer(w[i], fn[i])
+                new Layer(w[i], fn[i])
             );
         }
     }
 
-    Network::Network(vector<Layer> &w): Base(NEURAL_T::NETWORK_T) {
-        this->_l = vector<Layer>(w.begin(), w.end());
+    Network::Network(vector<Layer*> &w): Base(NEURAL_T::NETWORK_T) {
+        this->_l = vector<Layer*>(w.begin(), w.end());
+    }
+
+    Network::~Network() {
+        for (auto l: this->_l)
+            delete l;
     }
 
     int Network::layer_count() {
         return this->_l.size();
     }
 
-    vector<float> Network::operator<<(vector<float> &inp) {
-        int n = this->layer_count();
-        vector<float> res = vector<float>(inp.begin(), inp.end());
+    void Network::mutate() {
+        for (auto l: this->_l) l->mutate();
+    }
 
-        for (int i = 0; i < n; i++) res = this->_l[i] << res;
+    vector<float>* Network::operator<<(const vector<float> &inp) {
+        int n = this->layer_count();
+        vector<float>* res = new vector<float>(inp.begin(), inp.end());
+
+        for (int i = 0; i < n; i++) res = *this->_l[i] << *res;
 
         return res;
     }
 
-    Network operator*(Network &a, Network &b) {
+    Network* operator*(Network &a, Network &b) {
         int n = a.layer_count();
-        vector<Layer> w;
+        vector<Layer*> w;
 
-        for (int i = 0; i < n; i++) w.push_back(a._l[i] * b._l[i]);
+        for (int i = 0; i < n; i++) w.push_back(*a._l[i] * *b._l[i]);
 
-        return Network(w);
+        return new Network(w);
+    }
+
+    ostream& operator<<(ostream& o, Network& n) {
+        o << "[";
+        for (auto _: n._l)
+            o << *_;
+        o << "]";
+
+        return o;
     }
 };

@@ -1,9 +1,11 @@
 #include <vector>
+#include <iostream>
 
 #ifndef NEOS_INCLUDE_NEURAL_H
 #define NEOS_INCLUDE_NEURAL_H
 
 using std::vector;
+using std::ostream;
 
 namespace NEURAL {
     enum NEURAL_T {
@@ -16,6 +18,7 @@ namespace NEURAL {
         RELU,
         SIGMOID,
         TANH,
+        NO_ACTIVATION,
     };
 
     float apply_activation_function(float &x, NEURON_ACTIVATION_FUNCTION_T &t);
@@ -37,32 +40,40 @@ namespace NEURAL {
         public:
         Neuron(vector<float> &w, NEURON_ACTIVATION_FUNCTION_T &fn);
         int weight_count();
-        float operator<<(vector<float> &inp);
-        friend Neuron operator*(Neuron &a, Neuron &b);
+        void mutate();
+        float operator<<(const vector<float> &inp);
+        friend Neuron* operator*(Neuron &a, Neuron &b);
+        friend ostream& operator<<(ostream& o, Neuron& a);
     };
 
     class Layer: public Base {
         private:
-        vector<Neuron> _n;
+        vector<Neuron*> _n;
 
         public:
         Layer(vector<vector<float>> &w, vector<NEURON_ACTIVATION_FUNCTION_T> &fn);
-        Layer(vector<Neuron> &w);
+        Layer(vector<Neuron*> &w);
+        ~Layer();
         int neuron_count();
-        vector<float> operator<<(vector<float> &inp);
-        friend Layer operator*(Layer &a, Layer &b);
+        void mutate();
+        vector<float>* operator<<(const vector<float> &inp);
+        friend Layer* operator*(Layer &a, Layer &b);
+        friend ostream& operator<<(ostream& o, Layer& a);
     };
 
     class Network: public Base {
         private:
-        vector<Layer> _l;
+        vector<Layer*> _l;
 
         public:
         Network(vector<vector<vector<float>>> &w, vector<vector<NEURON_ACTIVATION_FUNCTION_T>> &fn);
-        Network(vector<Layer> &w);
+        Network(vector<Layer*> &w);
+        ~Network();
         int layer_count();
-        vector<float> operator<<(vector<float> &inp);
-        friend Network operator*(Network &a, Network &b);
+        void mutate();
+        vector<float>* operator<<(const vector<float> &inp);
+        friend Network* operator*(Network &a, Network &b);
+        friend ostream& operator<<(ostream& o, Network& a);
     };
 };
 
